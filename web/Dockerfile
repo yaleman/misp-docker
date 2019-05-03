@@ -49,6 +49,8 @@ RUN git clone https://github.com/MISP/MISP.git
 WORKDIR /var/www/MISP
 RUN git checkout tags/$(git describe --tags `git rev-list --tags --max-count=1`)
 RUN git config core.filemode false
+RUN git submodule update --init --recursive
+RUN git submodule foreach --recursive git config core.filemode false
 
 WORKDIR /var/www/MISP/app/files/scripts
 RUN git clone https://github.com/CybOXProject/python-cybox.git
@@ -73,19 +75,16 @@ WORKDIR /var/www/MISP/app
 
 # FIX COMPOSER
 RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
-RUN php -r "if (hash_file('sha384', 'composer-setup.php') === '48e3236262b34d30969dca3c37281b3b4bbe3221bda826ac6a9$
+
+RUN php -r "if (hash_file('sha384', 'composer-setup.php') === '48e3236262b34d30969dca3c37281b3b4bbe3221bda826ac6a9a62d6444cdb0dcd0615698a5cbe587c3f0fe57a54d8f5') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
+# cancel the build if the hash doesn't match
+RUN bash -c "if [ ! -f composer-setup.php ]; then false; fi"
+RUN php composer.phar config vendor-dir Vendor
 RUN php composer-setup.php
 RUN php -r "unlink('composer-setup.php');"
+RUN php composer.phar install --ignore-platform-reqs
 # END FIX
 
-RUN php composer.phar config vendor-dir Vendor
-
-RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
-RUN php -r "if (hash_file('sha384', 'composer-setup.php') === '48e3236262b34d30969dca3c37281b3b4bbe3221bda826ac6a9a62d6444cdb0dcd0615698a5cbe587c3f0fe57a54d8f5') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
-RUN php composer-setup.php
-RUN php -r "unlink('composer-setup.php');"
-
-RUN php composer.phar install --ignore-platform-reqs
 USER root
 RUN phpenmod redis
 USER www-data
@@ -109,8 +108,8 @@ RUN echo "postfix postfix/mailname string localhost.localdomain" | debconf-set-s
 RUN sed -i 's/^\(daemonize\s*\)yes\s*$/\1no/g' /etc/redis/redis.conf
 
 # Install PEAR packages
-RUN pear install Crypt_GPG >>/tmp/install.log
-RUN pear install Net_GeoIP >>/tmp/install.log
+#RUN pear install Crypt_GPG >>/tmp/install.log
+#RUN pear install Net_GeoIP >>/tmp/install.log
 
 # Apache Setup
 RUN cp /var/www/MISP/INSTALL/apache.misp.ubuntu /etc/apache2/sites-available/misp.conf
