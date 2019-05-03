@@ -6,42 +6,47 @@
 # 2016/03/03 - First release
 # 2017/06/02 - Updated
 # 2018/04/04 - Added objects templates
-# 
+#
 
 # We are based on Ubuntu:latest
 FROM ubuntu:xenial
 MAINTAINER Xavier Mertens <xavier@rootshell.be>
 
-# Install core components
 ENV DEBIAN_FRONTEND noninteractive
-RUN apt-get update && apt-get dist-upgrade -y && apt-get autoremove -y && apt-get clean
-RUN apt-get install -y software-properties-common
-RUN apt-get install -y postfix
-RUN apt-get install -y mysql-client curl gcc git gnupg-agent make python openssl redis-server sudo vim zip locales
 
+# Install core components
+RUN apt-get update
+RUN apt-get dist-upgrade -y 
+RUN apt-get install -y locales software-properties-common postfix cron logrotate supervisor syslog-ng-core mysql-client curl gcc git gnupg-agent make python openssl redis-server sudo vim zip 
+
+# set local for the apt repository to work
 RUN locale-gen en_US.UTF-8
 ENV LANG en_US.UTF-8
-RUN add-apt-repository -y ppa:ondrej/php && apt-get update
 
-# Apache
+RUN add-apt-repository -y ppa:ondrej/php 
+RUN apt-get update
+
+# install apache
 RUN apt-get install -y apache2 apache2-doc apache2-utils
-RUN a2dismod status
-RUN a2dissite 000-default
 
-# PHP 7.2
-RUN apt-get install -y libapache2-mod-php php7.2 php7.2-cli php-crypt-gpg php7.2-dev php7.2-json php7.2-mysql php7.2-opcache php7.2-readline php7.2-redis php7.2-xml
-RUN apt-get install -y php-pear pkg-config libbson-1.0 libmongoc-1.0-0 php-xml php-dev
+# PHP 7.3
+RUN apt-get install -y libapache2-mod-php php7.3 php7.3-cli php-crypt-gpg php7.3-dev php7.3-gd php7.3-json php7.3-mysql php7.3-opcache php7.3-readline php7.3-redis php7.3-xml php-pear pkg-config libbson-1.0 libmongoc-1.0-0 php-xml php-dev
+# Python requirements
+RUN apt-get install -y python-dev python-pip libxml2-dev libxslt1-dev zlib1g-dev python-setuptools libfuzzy-dev python3 python3-pip
+
+# Install MISP build requirements
+RUN sudo apt-get -y install libpoppler58 libpoppler-dev libpoppler-cpp-dev libjpeg-dev
+# clean out some caches 
+RUN apt-get clean
+RUN apt-get autoremove -y
 
 # Fix php.ini with recommended settings
-RUN sed -i "s/max_execution_time = 30/max_execution_time = 300/" /etc/php/7.2/apache2/php.ini
-RUN sed -i "s/memory_limit = 128M/memory_limit = 512M/" /etc/php/7.2/apache2/php.ini
-RUN sed -i "s/upload_max_filesize = 2M/upload_max_filesize = 50M/" /etc/php/7.2/apache2/php.ini
-RUN sed -i "s/post_max_size = 8M/post_max_size = 50M/" /etc/php/7.2/apache2/php.ini
+RUN sed -i "s/max_execution_time = 30/max_execution_time = 300/" /etc/php/7.3/apache2/php.ini
+RUN sed -i "s/memory_limit = 128M/memory_limit = 512M/" /etc/php/7.3/apache2/php.ini
+RUN sed -i "s/upload_max_filesize = 2M/upload_max_filesize = 50M/" /etc/php/7.3/apache2/php.ini
+RUN sed -i "s/post_max_size = 8M/post_max_size = 50M/" /etc/php/7.3/apache2/php.ini
 
-RUN apt-get install -y python-dev python-pip libxml2-dev libxslt1-dev zlib1g-dev python-setuptools libfuzzy-dev
-RUN apt-get install -y cron logrotate supervisor syslog-ng-core
-RUN apt-get clean
-
+# base MISP install
 WORKDIR /var/www
 RUN chown www-data:www-data /var/www
 USER www-data
@@ -73,20 +78,20 @@ RUN git submodule init
 RUN git submodule update
 WORKDIR /var/www/MISP/app
 
-# FIX COMPOSER
-RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
-
+# Install PHP Composer
+RUN curl -o composer-setup.php https://getcomposer.org/installer
 RUN php -r "if (hash_file('sha384', 'composer-setup.php') === '48e3236262b34d30969dca3c37281b3b4bbe3221bda826ac6a9a62d6444cdb0dcd0615698a5cbe587c3f0fe57a54d8f5') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
 # cancel the build if the hash doesn't match
 RUN bash -c "if [ ! -f composer-setup.php ]; then false; fi"
+
 RUN php composer.phar config vendor-dir Vendor
 RUN php composer-setup.php
-RUN php -r "unlink('composer-setup.php');"
 RUN php composer.phar install --ignore-platform-reqs
-# END FIX
+RUN rm -f composer-setup.php
 
 USER root
 RUN phpenmod redis
+
 USER www-data
 RUN cp -fa /var/www/MISP/INSTALL/setup/config.php /var/www/MISP/app/Plugin/CakeResque/Config/config.php
 
@@ -108,15 +113,16 @@ RUN echo "postfix postfix/mailname string localhost.localdomain" | debconf-set-s
 RUN sed -i 's/^\(daemonize\s*\)yes\s*$/\1no/g' /etc/redis/redis.conf
 
 # Install PEAR packages
-#RUN pear install Crypt_GPG >>/tmp/install.log
-#RUN pear install Net_GeoIP >>/tmp/install.log
+RUN pear install Crypt_GPG >> /tmp/install.log
+RUN pear install Net_GeoIP >> /tmp/install.log
 
 # Apache Setup
 RUN cp /var/www/MISP/INSTALL/apache.misp.ubuntu /etc/apache2/sites-available/misp.conf
-RUN a2dissite 000-default
-RUN a2ensite misp
+RUN a2dismod status
 RUN a2enmod rewrite
 RUN a2enmod headers
+RUN a2dissite 000-default
+RUN a2ensite misp
 
 # MISP base configuration
 RUN sudo -u www-data cp -a /var/www/MISP/app/Config/bootstrap.default.php /var/www/MISP/app/Config/bootstrap.php
@@ -131,7 +137,7 @@ RUN sed -i -E "s/'salt'\s=>\s'(\S+)'/'salt' => '`openssl rand -base64 32|tr "/" 
 
 # Enable workers at boot time
 RUN chmod a+x /var/www/MISP/app/Console/worker/start.sh
-RUN echo "sudo -u www-data bash /var/www/MISP/app/Console/worker/start.sh" >>/etc/rc.local
+RUN echo "sudo -u www-data bash /var/www/MISP/app/Console/worker/start.sh" >> /etc/rc.local
 
 # Install templates & stuff
 WORKDIR /var/www/MISP/app/files
@@ -141,37 +147,43 @@ RUN rm -rf warninglists && git clone https://github.com/MISP/misp-warninglists.g
 RUN rm -rf taxonomies && git clone https://github.com/MISP/misp-taxonomies.git ./taxonomies
 RUN chown -R www-data:www-data misp-objects misp-galaxy warninglists taxonomies
 
-# Install MISP build requirements
-RUN sudo apt-get -y install libpoppler58 libpoppler-dev libpoppler-cpp-dev
-
 # Install MISP Modules
-WORKDIR /opt
-RUN apt-get install -y python3 python3-pip libjpeg-dev
-# PIP3 fix
-RUN pip install --upgrade pip
-# END FIX
-RUN git clone https://github.com/MISP/misp-modules.git
-WORKDIR /opt/misp-modules
-RUN pip3 install --upgrade pip
-RUN cat REQUIREMENTS | sed 's/aiohttp==3.4.4/aiohttp/g' > REQUIREMENTS
-RUN pip3 install --upgrade --ignore-installed urllib3
-RUN pip3 install --upgrade --ignore-installed requests 
+RUN git clone https://github.com/MISP/misp-modules.git /opt/misp-modules
 
-RUN sed -i 's/aiohttp.*/aiohttp/g' REQUIREMENTS
+WORKDIR /opt/misp-modules
+# PIP fix
+RUN pip install --upgrade pip
+RUN pip install --upgrade setuptools
+RUN pip3 install --upgrade pip
+# END FIX
+# update setuptools because python-docx was failing
+RUN pip3 install --upgrade setuptools
+RUN pip3 install --upgrade --ignore-installed urllib3
+RUN pip3 install --upgrade --ignore-installed requests
+
+# fix version requirements
 RUN sed -i 's/functools.*//g' REQUIREMENTS
-RUN sed -i 's/async-timeout.*/async-timeout/g' REQUIREMENTS
-RUN sed -i 's/url-normalize.*/url-normalize/g' REQUIREMENTS
+RUN sed -i 's/\(aiohttp\)\=.*/\1/g' REQUIREMENTS
+RUN sed -i 's/\(async-timeout\)\=.*/\1/g' REQUIREMENTS
+RUN sed -i 's/\(url-normalize\)\=.*/\1/g' REQUIREMENTS
 RUN sed -i 's/^\(yarl\)\=.*/\1/g' REQUIREMENTS
-RUN sed -i 's/^\(sigmatools\)\=.*/\1/' REQUIREMENTS
+RUN sed -i 's/^\(sigmatools\)\=.*/\1/g' REQUIREMENTS
+# install python packages
 RUN pip3 install -I -r REQUIREMENTS
 RUN pip3 install -I .
-RUN echo "sudo -u www-data misp-modules -s -l 127.0.0.1 &" >>/etc/rc.local
+# install extra requirements
+RUN pip3 install git+https://github.com/cyboxproject/python-cybox
+RUN pip3 install stix maec stix2 pydeep python-magic lief
+
+# start misp-modules on startup
+RUN echo "sudo -u www-data misp-modules -s -l 127.0.0.1 &" >> /etc/rc.local
 
 # Supervisord Setup
 RUN echo '[supervisord]' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'nodaemon = true' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo '' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo '[program:postfix]' >> /etc/supervisor/conf.d/supervisord.conf
+RUN echo 'user = postfix' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'process_name = master' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'directory = /etc/postfix' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'command = /usr/sbin/postfix -c /etc/postfix start' >> /etc/supervisor/conf.d/supervisord.conf
@@ -182,6 +194,7 @@ RUN echo '[program:redis-server]' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'command=redis-server /etc/redis/redis.conf' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo '' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo '[program:apache2]' >> /etc/supervisor/conf.d/supervisord.conf
+RUN echo 'user = www-data' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'command=/bin/bash -c "source /etc/apache2/envvars && exec /usr/sbin/apache2 -D FOREGROUND"' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo '' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo '[program:resque]' >> /etc/supervisor/conf.d/supervisord.conf
