@@ -109,6 +109,11 @@ if [ -r /.firstboot.tmp ]; then
                 echo "No admin details provided, don't forget to generate the PGP key manually!"
         else
                 echo "Generating admin PGP key ... (please be patient, we need some entropy)"
+                # set the MISP admin username/password
+                if [ "$MISP_ADMIN_PASSPHRASE" != "admin" ]; then
+                        echo "Setting admin ($MISP_ADMIN_EMAIL) password"
+                        /var/www/MISP/app/Console/cake Password "$MISP_ADMIN_EMAIL" "$MISP_ADMIN_PASSPHRASE"
+                fi
                 cat >/tmp/gpg.tmp <<GPGEOF
 %echo Generating a basic OpenPGP key
 Key-Type: RSA
@@ -130,7 +135,7 @@ Congratulations!
 Your MISP docker has been successfully booted for the first time.
 Don't forget:
 - Reconfigure postfix to match your environment
-- Change the MISP admin email address to $MISP_ADMIN_EMAIL
+- Change the MISP admin email address from $MISP_ADMIN_EMAIL
 
 __WELCOME__
         rm -f /.firstboot.tmp

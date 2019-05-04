@@ -113,6 +113,7 @@ RUN echo "postfix postfix/mailname string localhost.localdomain" | debconf-set-s
 RUN sed -i 's/^\(daemonize\s*\)yes\s*$/\1no/g' /etc/redis/redis.conf
 
 # Install PEAR packages
+RUN pear channel-update pear.php.net
 RUN pear install Crypt_GPG >> /tmp/install.log
 RUN pear install Net_GeoIP >> /tmp/install.log
 
@@ -125,10 +126,12 @@ RUN a2dissite 000-default
 RUN a2ensite misp
 
 # MISP base configuration
-RUN sudo -u www-data cp -a /var/www/MISP/app/Config/bootstrap.default.php /var/www/MISP/app/Config/bootstrap.php
-RUN sudo -u www-data cp -a /var/www/MISP/app/Config/database.default.php /var/www/MISP/app/Config/database.php
-RUN sudo -u www-data cp -a /var/www/MISP/app/Config/core.default.php /var/www/MISP/app/Config/core.php
-RUN sudo -u www-data cp -a /var/www/MISP/app/Config/config.default.php /var/www/MISP/app/Config/config.php
+USER www-data
+RUN cp -a /var/www/MISP/app/Config/bootstrap.default.php /var/www/MISP/app/Config/bootstrap.php
+RUN cp -a /var/www/MISP/app/Config/database.default.php /var/www/MISP/app/Config/database.php
+RUN cp -a /var/www/MISP/app/Config/core.default.php /var/www/MISP/app/Config/core.php
+RUN cp -a /var/www/MISP/app/Config/config.default.php /var/www/MISP/app/Config/config.php
+USER root
 RUN chown -R www-data:www-data /var/www/MISP/app/Config
 RUN chmod -R 750 /var/www/MISP/app/Config
 
@@ -155,9 +158,9 @@ WORKDIR /opt/misp-modules
 RUN pip install --upgrade pip
 RUN pip install --upgrade setuptools
 RUN pip3 install --upgrade pip
-# END FIX
 # update setuptools because python-docx was failing
 RUN pip3 install --upgrade setuptools
+
 RUN pip3 install --upgrade --ignore-installed urllib3
 RUN pip3 install --upgrade --ignore-installed requests
 
@@ -175,26 +178,27 @@ RUN pip3 install -I .
 RUN pip3 install git+https://github.com/cyboxproject/python-cybox
 RUN pip3 install stix maec stix2 pydeep python-magic lief
 
-# start misp-modules on startup
-RUN echo "sudo -u www-data misp-modules -s -l 127.0.0.1 &" >> /etc/rc.local
+# start misp-modules on startup 
+RUN echo "sudo -u www-data misp-modules -s -l 127.0.0.1 &" >> /etc/rc.local 
 
 # Supervisord Setup
 RUN echo '[supervisord]' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'nodaemon = true' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo '' >> /etc/supervisor/conf.d/supervisord.conf
+# postfix for mail
 RUN echo '[program:postfix]' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'user = postfix' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'process_name = master' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'directory = /etc/postfix' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'command = /usr/sbin/postfix -c /etc/postfix start' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'startsecs = 0' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'autorestart = false' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo '' >> /etc/supervisor/conf.d/supervisord.conf
+# redis for queue
 RUN echo '[program:redis-server]' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'command=redis-server /etc/redis/redis.conf' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo '' >> /etc/supervisor/conf.d/supervisord.conf
+# apache for web server
 RUN echo '[program:apache2]' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'user = www-data' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'command=/bin/bash -c "source /etc/apache2/envvars && exec /usr/sbin/apache2 -D FOREGROUND"' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo '' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo '[program:resque]' >> /etc/supervisor/conf.d/supervisord.conf
@@ -203,6 +207,7 @@ RUN echo 'user = www-data' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'startsecs = 0' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'autorestart = false' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo '' >> /etc/supervisor/conf.d/supervisord.conf
+# misp modules
 RUN echo '[program:misp-modules]' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'command=/bin/bash -c "misp-modules -s -l 127.0.0.1"' >> /etc/supervisor/conf.d/supervisord.conf
 RUN echo 'user = www-data' >> /etc/supervisor/conf.d/supervisord.conf

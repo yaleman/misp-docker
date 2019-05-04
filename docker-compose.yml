@@ -17,7 +17,7 @@ services:
       - MYSQL_USER=misp
       - MYSQL_PASSWORD=misp
       - MISP_ADMIN_EMAIL=admin@admin.test
-      - MISP_ADMIN_PASSPHRASE=admin
+      - MISP_ADMIN_PASSPHRASE=Admin123456^
       - MISP_BASEURL=http:\/\/misp\.test
       - POSTFIX_RELAY_HOST=relay.fqdn
       - TIMEZONE=Europe/Brussels
