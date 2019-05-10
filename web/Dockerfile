@@ -40,6 +40,22 @@ RUN sudo apt-get -y install libpoppler58 libpoppler-dev libpoppler-cpp-dev libjp
 RUN apt-get clean
 RUN apt-get autoremove -y
 
+# PIP fix
+USER root 
+RUN sudo pip install --upgrade pip
+RUN pip install --upgrade setuptools
+RUN pip3 install --upgrade pip
+# update setuptools because python-docx was failing
+RUN pip3 install --upgrade setuptools
+
+# enable redis php module
+USER root
+RUN phpenmod redis
+
+# Preconfigure setting for packages
+RUN echo "postfix postfix/main_mailer_type string Local only" | debconf-set-selections
+RUN echo "postfix postfix/mailname string localhost.localdomain" | debconf-set-selections
+
 # Fix php.ini with recommended settings
 RUN sed -i "s/max_execution_time = 30/max_execution_time = 300/" /etc/php/7.3/apache2/php.ini
 RUN sed -i "s/memory_limit = 128M/memory_limit = 512M/" /etc/php/7.3/apache2/php.ini
@@ -47,10 +63,13 @@ RUN sed -i "s/upload_max_filesize = 2M/upload_max_filesize = 50M/" /etc/php/7.3/
 RUN sed -i "s/post_max_size = 8M/post_max_size = 50M/" /etc/php/7.3/apache2/php.ini
 
 # base MISP install
+USER root
 WORKDIR /var/www
 RUN chown www-data:www-data /var/www
+
 USER www-data
 RUN git clone https://github.com/MISP/MISP.git
+
 WORKDIR /var/www/MISP
 RUN git checkout tags/$(git describe --tags `git rev-list --tags --max-count=1`)
 RUN git config core.filemode false
@@ -69,6 +88,7 @@ RUN python setup.py install
 USER www-data
 WORKDIR /var/www/MISP/app/files/scripts/python-stix
 RUN git checkout v1.1.1.4
+
 USER root
 RUN python setup.py install
 
@@ -76,9 +96,9 @@ USER www-data
 WORKDIR /var/www/MISP
 RUN git submodule init
 RUN git submodule update
-WORKDIR /var/www/MISP/app
 
 # Install PHP Composer
+WORKDIR /var/www/MISP/app
 RUN curl -o composer-setup.php https://getcomposer.org/installer
 RUN php -r "if (hash_file('sha384', 'composer-setup.php') === '48e3236262b34d30969dca3c37281b3b4bbe3221bda826ac6a9a62d6444cdb0dcd0615698a5cbe587c3f0fe57a54d8f5') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
 # cancel the build if the hash doesn't match
@@ -88,9 +108,6 @@ RUN php composer.phar config vendor-dir Vendor
 RUN php composer-setup.php
 RUN php composer.phar install --ignore-platform-reqs
 RUN rm -f composer-setup.php
-
-USER root
-RUN phpenmod redis
 
 USER www-data
 RUN cp -fa /var/www/MISP/INSTALL/setup/config.php /var/www/MISP/app/Plugin/CakeResque/Config/config.php
@@ -104,10 +121,6 @@ RUN chmod -R g+ws /var/www/MISP/app/files
 RUN chmod -R g+ws /var/www/MISP/app/files/scripts/tmp
 
 RUN cp /var/www/MISP/INSTALL/misp.logrotate /etc/logrotate.d/misp
-
-# Preconfigure setting for packages
-RUN echo "postfix postfix/main_mailer_type string Local only" | debconf-set-selections
-RUN echo "postfix postfix/mailname string localhost.localdomain" | debconf-set-selections
 
 # Redis Setup
 RUN sed -i 's/^\(daemonize\s*\)yes\s*$/\1no/g' /etc/redis/redis.conf
@@ -151,16 +164,10 @@ RUN rm -rf taxonomies && git clone https://github.com/MISP/misp-taxonomies.git .
 RUN chown -R www-data:www-data misp-objects misp-galaxy warninglists taxonomies
 
 # Install MISP Modules
+USER root
 RUN git clone https://github.com/MISP/misp-modules.git /opt/misp-modules
 
 WORKDIR /opt/misp-modules
-# PIP fix
-RUN pip install --upgrade pip
-RUN pip install --upgrade setuptools
-RUN pip3 install --upgrade pip
-# update setuptools because python-docx was failing
-RUN pip3 install --upgrade setuptools
-
 RUN pip3 install --upgrade --ignore-installed urllib3
 RUN pip3 install --upgrade --ignore-installed requests
 
