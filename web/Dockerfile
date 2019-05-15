@@ -17,7 +17,8 @@ ENV DEBIAN_FRONTEND noninteractive
 # Install core components
 RUN apt-get update
 RUN apt-get dist-upgrade -y 
-RUN apt-get install -y locales software-properties-common postfix cron logrotate supervisor syslog-ng-core mysql-client curl gcc git gnupg-agent make python openssl redis-server sudo vim zip 
+RUN apt-get install -y locales software-properties-common postfix cron logrotate supervisor syslog-ng-core mysql-client curl gcc git gnupg-agent make python openssl sudo vim zip 
+#RUN apt-get install -y redis-server 
 
 # set local for the apt repository to work
 RUN locale-gen en_US.UTF-8
@@ -123,7 +124,9 @@ RUN chmod -R g+ws /var/www/MISP/app/files/scripts/tmp
 RUN cp /var/www/MISP/INSTALL/misp.logrotate /etc/logrotate.d/misp
 
 # Redis Setup
-RUN sed -i 's/^\(daemonize\s*\)yes\s*$/\1no/g' /etc/redis/redis.conf
+#RUN sed -i 's/^\(daemonize\s*\)yes\s*$/\1no/g' /etc/redis/redis.conf
+# update misp config to point at misp_redis
+RUN sed -i -e 's/127\.0\.0\.1/misp_redis/' /var/www/MISP/app/Model/AppModel.php
 
 # Install PEAR packages
 RUN pear channel-update pear.php.net
@@ -188,38 +191,8 @@ RUN pip3 install stix maec stix2 pydeep python-magic lief
 # start misp-modules on startup 
 RUN echo "sudo -u www-data misp-modules -s -l 127.0.0.1 &" >> /etc/rc.local 
 
-# Supervisord Setup
-RUN echo '[supervisord]' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'nodaemon = true' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo '' >> /etc/supervisor/conf.d/supervisord.conf
-# postfix for mail
-RUN echo '[program:postfix]' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'process_name = master' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'directory = /etc/postfix' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'command = /usr/sbin/postfix -c /etc/postfix start' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'startsecs = 0' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'autorestart = false' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo '' >> /etc/supervisor/conf.d/supervisord.conf
-# redis for queue
-RUN echo '[program:redis-server]' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'command=redis-server /etc/redis/redis.conf' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo '' >> /etc/supervisor/conf.d/supervisord.conf
-# apache for web server
-RUN echo '[program:apache2]' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'command=/bin/bash -c "source /etc/apache2/envvars && exec /usr/sbin/apache2 -D FOREGROUND"' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo '' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo '[program:resque]' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'command=/bin/bash /var/www/MISP/app/Console/worker/start.sh' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'user = www-data' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'startsecs = 0' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'autorestart = false' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo '' >> /etc/supervisor/conf.d/supervisord.conf
-# misp modules
-RUN echo '[program:misp-modules]' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'command=/bin/bash -c "misp-modules -s -l 127.0.0.1"' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'user = www-data' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'startsecs = 0' >> /etc/supervisor/conf.d/supervisord.conf
-RUN echo 'autorestart = false' >> /etc/supervisor/conf.d/supervisord.conf
+COPY supervisord.conf /etc/supervisor/conf.d/supervisord.conf
+
 # Modify syslog configuration
 RUN sed -i -E 's/^(\s*)system\(\);/\1unix-stream("\/dev\/log");/' /etc/syslog-ng/syslog-ng.conf
 

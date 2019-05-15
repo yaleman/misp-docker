@@ -21,7 +21,9 @@ services:
       - MISP_BASEURL=http:\/\/misp\.test
       - POSTFIX_RELAY_HOST=relay.fqdn
       - TIMEZONE=Europe/Brussels
-
+  redis:
+    container_name: misp_redis
+    image: redis
   db:
     container_name: misp_db
     image: mysql/mysql-server:5.7
