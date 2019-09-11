@@ -38,7 +38,9 @@ RUN sed -i "s/memory_limit = 128M/memory_limit = 512M/" /etc/php/7.2/apache2/php
 RUN sed -i "s/upload_max_filesize = 2M/upload_max_filesize = 50M/" /etc/php/7.2/apache2/php.ini
 RUN sed -i "s/post_max_size = 8M/post_max_size = 50M/" /etc/php/7.2/apache2/php.ini
 
+
 RUN apt-get install -y python-dev python-pip libxml2-dev libxslt1-dev zlib1g-dev python-setuptools libfuzzy-dev
+RUN pip install --upgrade pip
 RUN apt-get install -y cron logrotate supervisor syslog-ng-core
 RUN apt-get clean
 
@@ -76,7 +78,7 @@ WORKDIR /var/www/MISP/app
 # FIX COMPOSER
 RUN php -r "copy('https://getcomposer.org/installer', 'composer-setup.php');"
 
-RUN php -r "if (hash_file('sha384', 'composer-setup.php') === '48e3236262b34d30969dca3c37281b3b4bbe3221bda826ac6a9a62d6444cdb0dcd0615698a5cbe587c3f0fe57a54d8f5') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
+#RUN php -r "if (hash_file('sha384', 'composer-setup.php') === '48e3236262b34d30969dca3c37281b3b4bbe3221bda826ac6a9a62d6444cdb0dcd0615698a5cbe587c3f0fe57a54d8f5') { echo 'Installer verified'; } else { echo 'Installer corrupt'; unlink('composer-setup.php'); } echo PHP_EOL;"
 # cancel the build if the hash doesn't match
 RUN bash -c "if [ ! -f composer-setup.php ]; then false; fi"
 RUN php composer.phar config vendor-dir Vendor
