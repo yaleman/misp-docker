@@ -91,7 +91,7 @@ if [ -r /.firstboot.tmp ]; then
         cd /var/www/MISP/app/Config
         cp -a database.default.php database.php
         sed -i "s/localhost/$MYSQL_HOST/" database.php
-        sed -i "s/db\s*login/$MYSQL_DATABASE/" database.php
+        sed -i "s/db\s*login/$MYSQL_USER/" database.php
         sed -i "s/8889/3306/" database.php
         sed -i "s/db\s*password/$MYSQL_PASSWORD/" database.php
 
@@ -122,6 +122,7 @@ Passphrase: $MISP_ADMIN_PASSPHRASE
 GPGEOF
                 sudo -u www-data gpg --homedir /var/www/MISP/.gnupg --gen-key --batch /tmp/gpg.tmp >>/tmp/install.log
                 rm -f /tmp/gpg.tmp
+		sudo -u www-data gpg --homedir /var/www/MISP/.gnupg --export --armor $MISP_ADMIN_EMAIL > /var/www/MISP/app/webroot/gpg.asc
         fi
 
         # Display tips
@@ -131,7 +132,6 @@ Your MISP docker has been successfully booted for the first time.
 Don't forget:
 - Reconfigure postfix to match your environment
 - Change the MISP admin email address to $MISP_ADMIN_EMAIL
-
 __WELCOME__
         rm -f /.firstboot.tmp
 fi
@@ -140,4 +140,3 @@ fi
 echo "Starting supervisord"
 cd /
 exec /usr/bin/supervisord -c /etc/supervisor/conf.d/supervisord.conf
-          

@@ -9,8 +9,8 @@ services:
     ports:
       - "80:80"
     volumes:
-      - /dev/urandom:/dev/random
-      - /data/misp/web:/var/www/MISP
+      #- /dev/urandom:/dev/random
+      - ./data/misp/web:/var/www/MISP
     environment:
       - MYSQL_HOST=db
       - MYSQL_DATABASE=misp
@@ -18,7 +18,7 @@ services:
       - MYSQL_PASSWORD=misp
       - MISP_ADMIN_EMAIL=admin@admin.test
       - MISP_ADMIN_PASSPHRASE=admin
-      - MISP_BASEURL=http:\/\/misp\.test
+      - MISP_BASEURL=http:\/\/localhost
       - POSTFIX_RELAY_HOST=relay.fqdn
       - TIMEZONE=Europe/Brussels
 
@@ -27,7 +27,7 @@ services:
     image: mysql/mysql-server:5.7
     restart: unless-stopped
     volumes:
-      - /data/misp/db:/var/lib/mysql
+      - ./data/misp/db:/var/lib/mysql
     environment:
       - MYSQL_DATABASE=misp
       - MYSQL_USER=misp

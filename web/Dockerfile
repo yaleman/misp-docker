@@ -2,15 +2,10 @@
 # Dockerfile to build a MISP (https://github.com/MISP/MISP) container
 #
 # Original docker file by eg5846 (https://github.com/eg5846)
-#
-# 2016/03/03 - First release
-# 2017/06/02 - Updated
-# 2018/04/04 - Added objects templates
-# 
+# Another version by Xavier Mertens
 
-# We are based on Ubuntu:latest
 FROM ubuntu:xenial
-MAINTAINER Xavier Mertens <xavier@rootshell.be>
+MAINTAINER James Hodgkinson <yaleman@ricetek.net>
 
 # Install core components
 ENV DEBIAN_FRONTEND noninteractive
@@ -29,7 +24,7 @@ RUN a2dismod status
 RUN a2dissite 000-default
 
 # PHP 7.2
-RUN apt-get install -y libapache2-mod-php php7.2 php7.2-cli php-crypt-gpg php7.2-dev php7.2-json php7.2-mysql php7.2-opcache php7.2-readline php7.2-redis php7.2-xml
+RUN apt-get install -y libapache2-mod-php php7.4 php7.4-cli php-crypt-gpg php7.4-dev php7.4-json php7.4-mysql php7.4-opcache php7.4-readline php7.4-redis php7.4-xml
 RUN apt-get install -y php-pear pkg-config libbson-1.0 libmongoc-1.0-0 php-xml php-dev
 
 # Fix php.ini with recommended settings
@@ -39,7 +34,7 @@ RUN sed -i "s/upload_max_filesize = 2M/upload_max_filesize = 50M/" /etc/php/7.2/
 RUN sed -i "s/post_max_size = 8M/post_max_size = 50M/" /etc/php/7.2/apache2/php.ini
 
 
-RUN apt-get install -y python-dev python-pip libxml2-dev libxslt1-dev zlib1g-dev python-setuptools libfuzzy-dev
+RUN apt-get install -y python-dev python-pip libxml2-dev libxslt1-dev zlib1g-dev python-setuptools libfuzzy-dev python-dateutil
 RUN pip install --upgrade pip
 RUN apt-get install -y cron logrotate supervisor syslog-ng-core
 RUN apt-get clean
@@ -53,6 +48,7 @@ RUN git checkout tags/$(git describe --tags `git rev-list --tags --max-count=1`)
 RUN git config core.filemode false
 RUN git submodule update --init --recursive
 RUN git submodule foreach --recursive git config core.filemode false
+
 
 WORKDIR /var/www/MISP/app/files/scripts
 RUN git clone https://github.com/CybOXProject/python-cybox.git
@@ -150,7 +146,8 @@ RUN sudo apt-get -y install libpoppler58 libpoppler-dev libpoppler-cpp-dev
 WORKDIR /opt
 RUN apt-get install -y python3 python3-pip libjpeg-dev
 # PIP3 fix
-RUN pip install --upgrade pip
+RUN python3 -m pip install --upgrade pip
+
 # END FIX
 RUN git clone https://github.com/MISP/misp-modules.git
 WORKDIR /opt/misp-modules
