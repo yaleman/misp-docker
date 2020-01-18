@@ -23,15 +23,15 @@ RUN apt-get install -y apache2 apache2-doc apache2-utils
 RUN a2dismod status
 RUN a2dissite 000-default
 
-# PHP 7.2
+# PHP 7.4
 RUN apt-get install -y libapache2-mod-php php7.4 php7.4-cli php-crypt-gpg php7.4-dev php7.4-json php7.4-mysql php7.4-opcache php7.4-readline php7.4-redis php7.4-xml
 RUN apt-get install -y php-pear pkg-config libbson-1.0 libmongoc-1.0-0 php-xml php-dev
 
 # Fix php.ini with recommended settings
-RUN sed -i "s/max_execution_time = 30/max_execution_time = 300/" /etc/php/7.2/apache2/php.ini
-RUN sed -i "s/memory_limit = 128M/memory_limit = 512M/" /etc/php/7.2/apache2/php.ini
-RUN sed -i "s/upload_max_filesize = 2M/upload_max_filesize = 50M/" /etc/php/7.2/apache2/php.ini
-RUN sed -i "s/post_max_size = 8M/post_max_size = 50M/" /etc/php/7.2/apache2/php.ini
+RUN sed -i "s/max_execution_time = 30/max_execution_time = 300/" /etc/php/7.4/apache2/php.ini
+RUN sed -i "s/memory_limit = 128M/memory_limit = 512M/" /etc/php/7.4/apache2/php.ini
+RUN sed -i "s/upload_max_filesize = 2M/upload_max_filesize = 50M/" /etc/php/7.4/apache2/php.ini
+RUN sed -i "s/post_max_size = 8M/post_max_size = 50M/" /etc/php/7.4/apache2/php.ini
 
 
 RUN apt-get install -y python-dev python-pip libxml2-dev libxslt1-dev zlib1g-dev python-setuptools libfuzzy-dev python-dateutil
